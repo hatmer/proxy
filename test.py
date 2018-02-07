@@ -4,6 +4,7 @@ from sanic.exceptions import NotFound
 from sanic import response
 
 import requests
+import re
 
 app = Sanic("Congregate")
 app.static('/', './www')
@@ -39,9 +40,8 @@ def query_string(request):
 async def get_page(url, headers):
     print("fetching url: ", url)
     print("headers: ", headers)
-    r = requests.get(url, headers=headers)
+    r = requests.get(url)#, headers=headers) # TODO transfer screen size etc.
     return r
-
 
 @app.route('/proxy', methods=['GET', 'POST'])
 async def proxy(request):
@@ -62,20 +62,12 @@ async def proxy(request):
     #headers['host'] = url
     headers['referer'] = "www.google.com" # TODO set to own domain for ads?
 
-    """
-    prefixes = ["http://", "https://"]
-    for prefix in prefixes:
-        if url.startswith(prefix):
-            url = url[len(prefix):]
-    """
-
     try:
         r = await get_page(url, headers) #requests.get(url, headers=headers)
     except Exception as e:
         with open("www/404.html") as fh:
             return response.html(fh.read())
 
-    
 
     # log page
     print(r.text)
@@ -83,12 +75,13 @@ async def proxy(request):
     # replace urls
 
     #regex
+    newtext = re.sub(r'((http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*))', r'https://localhost:8000/proxy?client_url=\1', r.text, flags=re.IGNORECASE)
 
-    
+
 
     # return page
 
-    return response.text(r.text)
+    return response.html(newtext)
 
 
 @app.route('/login', methods=['GET', 'POST'])
