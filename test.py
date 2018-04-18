@@ -6,98 +6,94 @@ from sanic import response
 import requests
 import re
 
-app = Sanic("Congregate")
+app = Sanic("Proxy")
 app.static('/', './www')
+proxy_prefix = "https://localhost:8000/proxy?clientURL="
 
 with open('./www/404.html', 'r') as fh:
     notfound = fh.read()
 
-# main page
-@app.route("/")
-async def index(request):
-    return json({"hello": "world"})
-
-
-### Congregate Access ###
-
-@app.route('/get/<key>', methods=['GET'])
-async def get():
-    pass
-
-@app.route('/put/<key>', methods=['POST'])
-async def put():
-    pass
-
-
 ### APP ### 
-
-@app.route("/query_string")
-def query_string(request):
-    return json(request.json)
-    #return json({ "parsed": True, "args": request.args, "url": request.url, "query_string": request.query_string })
-
 
 async def get_page(url, headers):
     print("fetching url: ", url)
     print("headers: ", headers)
-    r = requests.get(url)#, headers=headers) # TODO transfer screen size etc.
+    r = requests.get(url, verify=False)#, headers=headers) # TODO transfer screen size etc.
+    return r
+
+async def post_page(url, headers, data):
+    r = requests.post(url, data=data, verify=False)
     return r
 
 @app.route('/proxy', methods=['GET', 'POST'])
 async def proxy(request):
-    #s = requests.Session()
 
     print("IP: ", request.ip)
     print("args: ", request.args)
     print("path: ", request.path)
+    print("query_string: ", request.query_string)
 
     # collect page
 
     headers = request.headers
     url = request.args['clientURL'][0].strip()
-
     # TODO sanity check url
-    
+
     # remove referer and host from headers
     #headers['host'] = url
     headers['referer'] = "www.google.com" # TODO set to own domain for ads?
 
-    try:
-        r = await get_page(url, headers) #requests.get(url, headers=headers)
-    except Exception as e:
-        with open("www/404.html") as fh:
-            return response.html(fh.read())
+    
+    if request.method == "POST":
+        try:
+            payload = request.body
+            r = await post_page(url, headers, data=payload)
+        
+        except Exception as e:
+            print("malformed url")
+
+
+    elif request.method == "GET":
+        try:
+            r = await get_page(url, headers) #requests.get(url, headers=headers)
+        except Exception as e:
+            print("request failed: ", e)
+            with open("www/404.html") as fh:
+                return response.html(fh.read())
+
 
 
     # log page
-    print(r.text)
+    #print(r.text)
     
-    # replace urls
+
+    filetype = "html"
+    # determine filetype
+
+    ### IMAGES ###
+    image_suffixes = [".png", ".svg", ".jpg", ".jpeg"]
+    for suf in image_suffixes:
+        if suf in url:
+            filetype = "image"
+
+    if filetype == "image":
+        return response.raw(r.content)
+
+
+    ### HTML ###
+
+    # replace urls for html
 
     #regex
-    newtext = re.sub(r'((http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*))', r'https://localhost:8000/proxy?client_url=\1', r.text, flags=re.IGNORECASE)
+    text = re.sub(r'"((http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*))"', r'"https://localhost:8000/proxy?clientURL=\1"', r.text, flags=re.IGNORECASE)
 
+    stub = r'="https://localhost:8000/proxy?clientURL={}/'.format(url)
+    text = re.sub(r'="/', stub, text)
 
 
     # return page
-
-    return response.html(newtext)
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login(request):
-    if request.method == 'POST':
-        username = request.form['username']
-        print("{} logged in".format(username))
-        return response.redirect('/')
-    return response.html('<form method="post"><p><input type=text name=username><p><input type=submit value=Login></form>')
-
-@app.route('/logout')
-def logout():
-    # remove the username from the session if it's there
-    session.pop('username', None)
-    return response.redirect('/')
-
+    #if text[0
+    return response.html(text)
 
 
 @app.exception(NotFound)
