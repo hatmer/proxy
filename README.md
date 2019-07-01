@@ -1,6 +1,6 @@
-# Sanic HTTPS Proxy
+# Sanic HTTPS Reverse Proxy
 
-Very simple HTTPS proxy
+Very simple HTTPS Reverse proxy
 
 ## Requirements
 * python >= 3.5
