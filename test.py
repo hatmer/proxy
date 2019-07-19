@@ -18,7 +18,7 @@ with open('./www/404.html', 'r') as fh:
 async def get_page(url, headers):
     print("fetching url: ", url)
     print("headers: ", headers)
-    r = requests.get(url, verify=False)#, headers=headers) # TODO transfer screen size etc.
+    r = requests.get(url, verify=False)#, headers=headers)
     return r
 
 async def post_page(url, headers, data):
@@ -41,7 +41,7 @@ async def proxy(request):
 
     # remove referer and host from headers
     #headers['host'] = url
-    headers['referer'] = "www.google.com" # TODO set to own domain for ads?
+    headers['referer'] = "www.google.com" 
 
     
     if request.method == "POST":
@@ -55,7 +55,7 @@ async def proxy(request):
 
     elif request.method == "GET":
         try:
-            r = await get_page(url, headers) #requests.get(url, headers=headers)
+            r = await get_page(url, headers) 
         except Exception as e:
             print("request failed: ", e)
             with open("www/404.html") as fh:
